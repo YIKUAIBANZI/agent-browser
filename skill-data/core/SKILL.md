@@ -386,7 +386,7 @@ agent-browser click @e3
 agent-browser record stop
 ```
 
-Recording uses the active tab. Use `--cursor` for an animated pointer, `--contact-sheet` for a visual summary, and `--fps 60` for motion-heavy recordings.
+Recording uses the active tab. Use `--cursor` for an animated pointer, `--contact-sheet` for a visual summary, and `--fps 60` for motion-heavy recordings. The cursor renders with the page so drags stay synchronized. Its inert overlay is hidden from accessibility snapshots, included in screenshots while recording, and removed on stop.
 
 See [references/video-recording.md](references/video-recording.md) for frame rate guidance, codec options, and more.
 
@@ -487,6 +487,7 @@ EOF
 --json                  # JSON output (for machine parsing)
 --headed                # show the window (default is headless)
 --args <args>           # Chrome launch args (comma/newline separated; commas inside --flag=value stay intact)
+--engine <name>         # chrome (default), lightpanda, obscura (experimental)
 --webgpu                # enable WebGPU (software Vulkan on Linux, no GPU needed)
 --auto-connect          # connect to an already-running Chrome
 --cdp <port|url>        # connect to a CDP port or WebSocket URL; root query slash is optional
@@ -500,6 +501,8 @@ EOF
 --restore-save <policy> # auto, always, or never
 --namespace <name>      # isolate daemon sockets and restore-state directories
 ```
+
+Engine setup and limits: [Lightpanda](https://agent-browser.dev/engines/lightpanda), [Obscura (experimental)](https://agent-browser.dev/engines/obscura).
 
 ## When to load another skill
 

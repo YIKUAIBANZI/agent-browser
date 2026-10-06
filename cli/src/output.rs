@@ -2459,6 +2459,14 @@ Subcommands:
   up [button]          Release mouse button
   wheel <dy> [dx]      Scroll mouse wheel
 
+Movement Options:
+  --duration <ms>       Target total duration, including browser response time
+  --steps <n>           Number of movement events (1-240)
+  --human               Use a reproducible eased curve
+  --seed <n>            Seed for the human movement path
+
+Steps share one schedule; a slow browser can extend the requested duration.
+
 Global Options:
   --json               Output as JSON
   --session <name>     Use specific session
@@ -2774,6 +2782,9 @@ Login behavior:
   auth login navigates, then waits for form selectors before filling/clicking.
   --no-navigate preserves the active top-level page and checks its origin
   against the effective credential URL. Submit-triggered navigation is allowed.
+  Matches are checked for size, computed visibility/opacity, and disabled/readonly
+  state, including custom selectors.
+  Replaced or focus-redirected credential fields fail without submitting.
   Selector wait timeout follows the default action timeout.
   Plugin credentials are resolved just-in-time and are not saved locally.
 
@@ -2929,6 +2940,10 @@ ffmpeg, or apt install ffmpeg). Run `agent-browser doctor` to check.
 Recording captures 30 fps, which keeps scrolls and CSS transitions smooth.
 Raise it to 60 for short, motion-heavy takes (drag interactions, animation
 work); lower it for long sessions where file size matters more than motion.
+
+With --cursor, an inert overlay renders the pointer and page together so
+drags stay synchronized. It is hidden from accessibility snapshots and
+removed on stop. Screenshots taken while recording include the overlay.
 
 Operations:
   start <path> [url]     Start recording the active page (navigates first if url given)
@@ -3585,6 +3600,10 @@ Chat Options:
   -v, --verbose          Show tool commands and their raw output
   -q, --quiet            Show only the AI text response (hide tool calls)
 
+Each tool call runs one agent-browser command. Chat can load bundled skills
+(skills get <name>) and use page WebMCP tools, fetching a tool's schema with
+webmcp list <tool> --frame <frame-id> --json before invoking it in that frame.
+
 Global Options:
   --json                 Structured JSON output per turn
   --session <name>       Target session for commands
@@ -4049,9 +4068,18 @@ Options:
   --action-policy <path>     Action policy JSON file (or AGENT_BROWSER_ACTION_POLICY)
   --confirm-actions <list>   Categories requiring confirmation (or AGENT_BROWSER_CONFIRM_ACTIONS)
   --confirm-interactive      Interactive confirmation prompts; auto-denies if stdin is not a TTY (or AGENT_BROWSER_CONFIRM_INTERACTIVE)
-  --engine <name>            Browser engine: chrome (default), lightpanda (or AGENT_BROWSER_ENGINE)
   --idle-timeout <time>      Shut down daemon after inactivity: 10s, 3m, 1h, or raw ms
                              (default: 1h; 0 disables; dashboard input resets the timer)
+  --engine <name>            Browser engine: chrome (default), lightpanda, obscura (experimental)
+                             (or AGENT_BROWSER_ENGINE); Obscura rejects --proxy-bypass,
+                             proxyBypass config, AGENT_BROWSER_PROXY_BYPASS, NO_PROXY/no_proxy,
+                             --webgpu, --ca-cert, --args, profiles, state, extensions,
+                             headed mode, and file access. Discovery and CDP initialization
+                             each have a 10s deadline plus bounded failure cleanup.
+                             Explicit Obscura launches validate this invocation's resolved
+                             bypass settings, even with an existing daemon; stale daemon
+                             environment values are not reused when bypass is cleared.
+                             Obscura has accessibility, iframe, and screenshot fidelity gaps.
   --no-auto-dialog           Disable automatic dismissal of alert/beforeunload dialogs (or AGENT_BROWSER_NO_AUTO_DIALOG)
   --model <name>             AI model for chat (or AI_GATEWAY_MODEL env)
   -v, --verbose              Show tool commands and their raw output
@@ -4115,6 +4143,13 @@ Environment:
   AGENT_BROWSER_CA_CERT          Path to CA certificate to trust (HTTPS interception proxies)
   AGENT_BROWSER_CLEAR_CA_CERT    Clear CA trust retained by the running browser session
   AGENT_BROWSER_PROVIDER         Browser provider (ios, browserbase, kernel, browseruse, browserless, agentcore, or plugin name)
+  BROWSER_USE_API_KEY            Browser Use Cloud API key
+  BROWSER_USE_PROFILE_ID         Browser Use profile UUID
+  BROWSER_USE_PROXY_COUNTRY      Managed proxy country; none/direct disables proxy
+  BROWSER_USE_ENABLE_RECORDING   Record the Browser Use Cloud session
+                                 Browser Use setup: 18s total, plus up to 4s timeout cleanup.
+                                 close fails and stays retryable until the Cloud session confirms it
+                                 stopped. After daemon exit, inspect and stop the browser in Cloud.
   AGENT_BROWSER_AUTO_CONNECT     Auto-discover and connect to running Chrome
   AGENT_BROWSER_PIN_TAB          Pin the session to its bound tab (strict tab binding)
   AGENT_BROWSER_ALLOW_FILE_ACCESS Allow file:// URLs to access local files
@@ -4143,8 +4178,14 @@ Environment:
   AGENT_BROWSER_CONFIRM_ACTIONS  Action categories requiring confirmation
   AGENT_BROWSER_CONFIRM_INTERACTIVE Enable interactive confirmation prompts
   AGENT_BROWSER_NO_AUTO_DIALOG   Disable automatic dismissal of alert/beforeunload dialogs
-  AGENT_BROWSER_ENGINE           Browser engine: chrome (default), lightpanda
   AGENT_BROWSER_PLUGINS          JSON plugin registry override
+  AGENT_BROWSER_ENGINE           Browser engine: chrome (default), lightpanda, obscura (experimental)
+  OBSCURA_BIN                   Source E2E tests only: required executable path when explicitly
+                                running cargo test e2e_obscura -- --ignored --test-threads=1
+                                Tests clear AGENT_BROWSER_CDP, AGENT_BROWSER_AUTO_CONNECT,
+                                and AGENT_BROWSER_PROVIDER and require an owned Obscura process.
+  OBSCURA_ALLOW_PRIVATE_NETWORK Allow Obscura to access local/private pages (set before launch)
+  AGENT_BROWSER_OBSCURA_STEALTH  Run the Obscura engine in stealth mode (consistent fingerprint, tracker blocking)
   HTTP_PROXY / HTTPS_PROXY       Standard proxy env vars (fallback if AGENT_BROWSER_PROXY not set)
   ALL_PROXY                      SOCKS proxy (fallback for proxy)
   NO_PROXY                       Bypass proxy for hosts (fallback for proxy-bypass)
@@ -4163,6 +4204,7 @@ Install:
 
 Examples:
   agent-browser open example.com
+  agent-browser --engine obscura --executable-path /path/to/obscura open example.com
   agent-browser snapshot -i              # Interactive elements only
   agent-browser click @e2                # Click by ref from snapshot
   agent-browser fill @e3 "test@example.com"
